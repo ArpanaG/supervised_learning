@@ -1,0 +1,578 @@
+---
+title: "Random Forests Lab"
+author: "Arpana"
+date: "4th Nov 2018"
+output: 
+  html_document:
+    toc: true
+    toc_depth : 4
+    toc_float : true
+---
+
+# Random Forests
+
+Decision Trees typically tend to overfit and result in a high variance model. To reduce overfitting in decision trees, random feature sub-spaces is used where a portion of the attributes are used to build multiple trees. The majority vote from the trees are used for prediction. As a result, the model can generalize better.  
+
+
+
+
+
+## Clear Environment
+```{r}
+rm(list = ls(all = T))
+```
+
+## Load the required libraries
+```{r}
+library(DMwR)
+# This library has some function we use quite often, such as KNN and Cetnral Imputation, regr.eval(), SMOTE, manyNAs() 
+
+library(randomForest)
+# This library has some specific calls for Random Forest Algorithm - The model itself, importance of variables
+
+library(caret)
+# Preprocess functions, nearzerovars etc.
+```
+
+## Read the data into R
+
+
+```{r}
+train_data1 = read.csv("Train-1542969243754.csv")
+train_data2 = read.csv("Train_ClaimDetails-1542969243754.csv")
+train_data3 = read.csv("Train_Policy_Demographics-1542969243754.csv")
+
+dim(train_data1)
+dim(train_data2)
+dim(train_data3)
+
+#str(train_data3)
+```
+
+```{r}
+test_data1 = read.csv("Test-1542969243754.csv")
+test_data2 = read.csv("Test_ClaimDetails-1542969243754.csv")
+test_data3 = read.csv("Test_Policy_Demographics-1542969243754.csv")
+
+dim(test_data1)
+dim(test_data2)
+dim(test_data3)
+
+```
+
+
+```{r}
+train_data = merge(train_data2,train_data1,by.x="ClaimID",by.y="ClaimID", all=TRUE) 
+dim(train_data)
+#str(train_data)
+
+data = merge(train_data,train_data3,by.x="ClaimID",by.y="ClaimID", all=TRUE) 
+dim(data)
+#str(train_data)
+```
+
+
+```{r}
+test_data = merge(test_data2,test_data1,by.x="ClaimID",by.y="ClaimID", all=TRUE) 
+dim(test_data)
+#str(test_data)
+
+data_test = merge(test_data,test_data3,by.x="ClaimID",by.y="ClaimID", all=TRUE) 
+dim(data_test)
+#str(data_test)
+```
+
+
+## Understand the data 
+```{r}
+str(data)
+summary(data)
+
+```
+
+### Check the count of target variable values
+
+```{r}
+
+table(data$ClaimSize)
+str(data$ClaimSize) 
+
+```
+
+
+# #df$Var[df$Var == ""] <- "NA"
+
+# data1$Work_related_injury_status <- as.character(data1$Work_related_injury_status)
+# data1$Work_related_injury_status[data1$Work_related_injury_status==""] <- "NA"
+# data1$Work_related_injury_status <- as.factor(data1$Work_related_injury_status)
+
+# data1$MedicalInsurance <- as.character(data1$MedicalInsurance)
+# data1$MedicalInsurance[data1$MedicalInsurance==""] <- "NA"
+# data1$MedicalInsurance <- as.factor(data1$MedicalInsurance)
+
+# data1$DisabilityInsurance <- as.character(data1$DisabilityInsurance)
+# data1$DisabilityInsurance[data1$DisabilityInsurance==""] <- "NA"
+# data1$DisabilityInsurance <- as.factor(data1$DisabilityInsurance)
+
+
+# data1$SocialSecurityBenefits <- as.character(data1$SocialSecurityBenefits)
+# data1$SocialSecurityBenefits[data1$SocialSecurityBenefits==""] <- "NA"
+# data1$SocialSecurityBenefits <- as.factor(data1$SocialSecurityBenefits)
+
+# data1$Medicare_Medicaid <- as.character(data1$Medicare_Medicaid)
+# data1$Medicare_Medicaid[data1$Medicare_Medicaid==""] <- "NA"
+# data1$Medicare_Medicaid <- as.factor(data1$Medicare_Medicaid)
+
+# data1$OtherCollateralSources <- as.character(data1$OtherCollateralSources)
+# data1$OtherCollateralSources[data1$OtherCollateralSources==""] <- "NA"
+# data1$OtherCollateralSources <- as.factor(data1$OtherCollateralSources)""
+
+```{r}
+
+data$Death= ifelse(data$Death=="A", 1, 0 ) 
+data$Amputation= ifelse(data$Amputation=="B", 1, 0 ) 
+data$Burns_heat= ifelse(data$Burns_heat=="C", 1, 0 ) 
+data$Burns_chemical= ifelse(data$Burns_chemical=="D", 1, 0 ) 
+data$SystemicPoisoning_toxic= ifelse(data$SystemicPoisoning_toxic=="E", 1, 0 ) 
+
+data$SystemicPoisoning_other= ifelse(data$SystemicPoisoning_other=="F", 0, 1 )   #logic with missing
+
+data$Eye_injury_blindness= ifelse(data$Eye_injury_blindness=="G", 1, 0 ) 
+data$RespiratoryCondition= ifelse(data$RespiratoryCondition=="H", 1, 0 ) 
+data$NervousCondition= ifelse(data$NervousCondition=="I", 1, 0 ) 
+data$HearingLoss= ifelse(data$HearingLoss=="J", 1, 0 ) 
+data$CirculatoryCondition= ifelse(data$CirculatoryCondition=="K", 1, 0 ) 
+data$MultipleInjuries= ifelse(data$MultipleInjuries=="L", 1, 0 ) 
+data$BackInjury= ifelse(data$BackInjury=="M", 1, 0 ) 
+data$SkinDisorder= ifelse(data$SkinDisorder=="N", 1, 0 ) 
+data$BrainDamage= ifelse(data$BrainDamage=="O", 1, 0 ) 
+data$Scarring= ifelse(data$Scarring=="P", 1, 0 ) 
+data$SpinalCordInjuries= ifelse(data$SpinalCordInjuries=="Q", 1, 0 ) 
+data$OtherInjuries= ifelse(data$OtherInjuries=="R", 1, 0 ) 
+
+
+data$OffRoadVehicle= ifelse(data$OffRoadVehicle=="A", 1, 0 ) 
+data$AirTransportation= ifelse(data$AirTransportation=="B", 1, 0 ) 
+data$Railway= ifelse(data$Railway=="C", 1, 0 ) 
+data$OtherMotorVehicle= ifelse(data$OtherMotorVehicle=="D", 1, 0 ) 
+data$SurgicalCare= ifelse(data$SurgicalCare=="E", 1, 0 ) 
+data$Falls= ifelse(data$Falls=="F", 0, 1 )      #12403NAS
+data$Drowning= ifelse(data$Drowning=="G", 1, 0 ) 
+data$UseOfDefectiveProduct= ifelse(data$UseOfDefectiveProduct=="H", 1, 0 ) 
+data$Fire= ifelse(data$Fire=="I", 1, 0 ) 
+data$Firearm= ifelse(data$Firearm=="J", 1, 0 ) 
+data$Pollution_ToxicExposure= ifelse(data$Pollution_ToxicExposure=="K", 1, 0 ) 
+data$Explosions= ifelse(data$Explosions=="L", 1, 0 ) 
+data$UseOfAgrlMachinery= ifelse(data$UseOfAgrlMachinery=="M", 1, 0 ) 
+data$Oil_gasExtraction= ifelse(data$Oil_gasExtraction=="N", 1, 0 ) 
+data$OtherModeOfInjury= ifelse(data$OtherModeOfInjury=="O", 1, 0 ) 
+
+#data$WorkersCompAvailability= ifelse(data$WorkersCompAvailability=="A", 1, 0 ) 
+#data$CollateralSourcesAvailability= ifelse(data$CollateralSourcesAvailability=="A", 1, 0 ) 
+#data$MedicalInsurance= ifelse(data$MedicalInsurance=="A", 1, 0 ) 
+
+
+  
+
+data1 = subset(data, select = -c(ClaimID, PolicyID, Date_reported, Injury_Date, SystemicPoisoning_other, Falls,Match_Multiclaimant_multiInterestedparties_claim ))
+
+
+
+
+sum(data1$Amputation)
+
+str(data1)
+summary(data1)
+#summary(data1$SystemicPoisoning_other)
+#summary(data1$Falls)
+#summary(data1$Match_Multiclaimant_multiInterestedparties_claim)
+#SystemicPoisoning_other NAs
+#Falls
+#Match_Multiclaimant_multiInterestedparties_claim
+```
+
+
+
+```{r}
+data_test$Death= ifelse(data_test$Death=="A", 1, 0 ) 
+data_test$Amputation= ifelse(data_test$Amputation=="B", 1, 0 ) 
+data_test$Burns_heat= ifelse(data_test$Burns_heat=="C", 1, 0 ) 
+data_test$Burns_chemical= ifelse(data_test$Burns_chemical=="D", 1, 0 ) 
+data_test$SystemicPoisoning_toxic= ifelse(data_test$SystemicPoisoning_toxic=="E", 1, 0 ) 
+
+data_test$SystemicPoisoning_other= ifelse(data_test$SystemicPoisoning_other=="F", 0, 1 )
+
+data_test$Eye_injury_blindness= ifelse(data_test$Eye_injury_blindness=="G", 1, 0 ) 
+data_test$RespiratoryCondition= ifelse(data_test$RespiratoryCondition=="H", 1, 0 ) 
+data_test$NervousCondition= ifelse(data_test$NervousCondition=="I", 1, 0 ) 
+data_test$HearingLoss= ifelse(data_test$HearingLoss=="J", 1, 0 ) 
+data_test$CirculatoryCondition= ifelse(data_test$CirculatoryCondition=="K", 1, 0 ) 
+data_test$MultipleInjuries= ifelse(data_test$MultipleInjuries=="L", 1, 0 ) 
+data_test$BackInjury= ifelse(data_test$BackInjury=="M", 1, 0 ) 
+data_test$SkinDisorder= ifelse(data_test$SkinDisorder=="N", 1, 0 ) 
+data_test$BrainDamage= ifelse(data_test$BrainDamage=="O", 1, 0 ) 
+data_test$Scarring= ifelse(data_test$Scarring=="P", 1, 0 ) 
+data_test$SpinalCordInjuries= ifelse(data_test$SpinalCordInjuries=="Q", 1, 0 ) 
+data_test$OtherInjuries= ifelse(data_test$OtherInjuries=="R", 1, 0 ) 
+
+
+data_test$OffRoadVehicle= ifelse(data_test$OffRoadVehicle=="A", 1, 0 ) 
+data_test$AirTransportation= ifelse(data_test$AirTransportation=="B", 1, 0 ) 
+data_test$Railway= ifelse(data_test$Railway=="C", 1, 0 ) 
+data_test$OtherMotorVehicle= ifelse(data_test$OtherMotorVehicle=="D", 1, 0 ) 
+data_test$SurgicalCare= ifelse(data_test$SurgicalCare=="E", 1, 0 ) 
+data_test$Falls= ifelse(data_test$Falls=="F", 0, 1 )      #12403NAS
+data_test$Drowning= ifelse(data_test$Drowning=="G", 1, 0 ) 
+data_test$UseOfDefectiveProduct= ifelse(data_test$UseOfDefectiveProduct=="H", 1, 0 ) 
+data_test$Fire= ifelse(data_test$Fire=="I", 1, 0 ) 
+data_test$Firearm= ifelse(data_test$Firearm=="J", 1, 0 ) 
+data_test$Pollution_ToxicExposure= ifelse(data_test$Pollution_ToxicExposure=="K", 1, 0 ) 
+data_test$Explosions= ifelse(data_test$Explosions=="L", 1, 0 ) 
+data_test$UseOfAgrlMachinery= ifelse(data_test$UseOfAgrlMachinery=="M", 1, 0 ) 
+data_test$Oil_gasExtraction= ifelse(data_test$Oil_gasExtraction=="N", 1, 0 ) 
+data_test$OtherModeOfInjury= ifelse(data_test$OtherModeOfInjury=="O", 1, 0 ) 
+
+data_test1 = subset(data_test, select = -c(ClaimID, PolicyID, Date_reported, Injury_Date, SystemicPoisoning_other, Falls,Match_Multiclaimant_multiInterestedparties_claim ))
+sum(data_test1$Amputation)
+str(data_test1)
+summary(data_test1)
+
+```
+
+
+
+## Convert data to the required format
+
+### Convert 1s and 2s into 1s and 0s 
+
+### Separate Categorical and Numerical Variables 
+```{r}
+
+cat_Attr = c("Work_related_injury_status", "Non_economicloss", "Exemplarydamages","WhetherPrimaFacie_JointandSeveralLiability","WorkersCompAvailability","CollateralSourcesAvailability",
+         "MedicalInsurance","DisabilityInsurance","SocialSecurityBenefits","Medicare_Medicaid","OtherCollateralSources",
+         "ClaimSize","Employment_status")
+num_Attr = setdiff(names(data1), cat_Attr)
+#num_Attr
+
+# Separate numerical and categorical variables and convert them into appropriate type
+
+cat_Data = data.frame(sapply(data1[,cat_Attr], as.factor))
+num_Data = data.frame(sapply(data1[,num_Attr], as.numeric))
+data2 = cbind(num_Data, cat_Data)
+str(data2)
+# Remove variable that are not needed further
+#rm(num_Attr, cat_Attr)
+#rm(cat_Data, num_Data)
+```
+
+
+```{r}
+# Separate numerical and categorical variables and convert them into appropriate type
+cat_Attr = c("Work_related_injury_status", "Non_economicloss", "Exemplarydamages","WhetherPrimaFacie_JointandSeveralLiability","WorkersCompAvailability","CollateralSourcesAvailability",
+         "MedicalInsurance","DisabilityInsurance","SocialSecurityBenefits","Medicare_Medicaid","OtherCollateralSources",
+         "Employment_status")
+num_Attr = setdiff(names(data_test1), cat_Attr)
+
+cat_data_test = data.frame(sapply(data_test1[,cat_Attr], as.factor))
+num_data_test = data.frame(sapply(data_test1[,num_Attr], as.numeric))
+test_final = cbind(num_data_test, cat_data_test)
+str(cat_Attr)
+
+```
+
+## Split dataset into train and test
+```{r}
+set.seed(009)
+
+train_RowIDs = sample(1:nrow(data2), nrow(data2)*0.7)
+train_Data = data2[train_RowIDs,]
+test_Data = data2[-train_RowIDs,]
+
+rm(train_RowIDs)
+
+```
+
+## Check how records are split with respect to target attribute
+```{r}
+table(data$ClaimSize)
+table(train_Data$ClaimSize)
+table(test_Data$ClaimSize)
+
+# Note : # As part of Pre-processing, Imputation and scaling are done after train-evaluation/test split
+```
+
+## Check to see if missing values in data
+```{r}
+sum(is.na(train_Data))
+sum(is.na(test_Data))
+```
+
+
+```{r}
+summary(train_Data)
+```
+
+
+
+## Imputing missing values using KNN
+```{r}
+# Impute for train data
+#install.packages("VIM")
+sum(is.na(test_final))
+library("VIM")
+train_Data <- knnImputation(data = train_Data, k = 3)
+sum(is.na(train_Data))
+dim(train_Data)
+
+# Impute for test data
+test_Data <- knnImputation(data = test_Data, k = 5, distData = train_Data)
+sum(is.na(test_Data))
+
+```
+
+
+##  Model Building 
+### Build the classification model using randomForest
+```{r}
+set.seed(123)
+
+
+model = randomForest(ClaimSize ~ ., data=train_Data, 
+                     keep.forest=TRUE, ntree=200) 
+
+# Print and understand the model
+print(model)
+```
+
+### Notes on the model:
+
+* No. of variables tried at each split = floor(sqrt(ncol(train_Data) - 1))
+* Out-of-Bag is equivalent to validation or test data.  
+* It is estimated internally, during the run, as follows: As the forest is built on training data , each tree is tested on the 1/3rd of the samples (36.8%) not used in building that tree (similar to validation data set). This is the out of bag error estimate - an internal error estimate of a random forest as it is being constructed.
+
+
+## Important attributes
+* Important attributes derived from Random Forest models are often used to simplify the model
+```{r}
+model$importance
+```
+
+## Extract and store important variables obtained from the random forest model
+```{r}
+rf_Imp_Attr = data.frame(model$importance)
+rf_Imp_Attr = data.frame(row.names(rf_Imp_Attr),rf_Imp_Attr[,1])
+rf_Imp_Attr
+
+colnames(rf_Imp_Attr) = c('Attributes', 'Importance')
+rf_Imp_Attr = rf_Imp_Attr[order(rf_Imp_Attr$Importance, decreasing = TRUE),]
+rf_Imp_Attr
+```
+
+## Plot (directly prints the important attributes) 
+```{r}
+varImpPlot(model)
+```
+
+## Predict on Train data 
+```{r}
+pred_Train = predict(model, 
+                     train_Data[,setdiff(names(train_Data), "ClaimSize")],
+                     type="response", 
+                     norm.votes=TRUE)
+```
+
+## Build confusion matrix and find accuracy 
+```{r}
+cm_Train = table("actual"= train_Data$ClaimSize, "predicted" = pred_Train);
+cm_Train
+
+accu_Train= sum(diag(cm_Train))/sum(cm_Train)
+accu_Train
+
+rm(pred_Train, cm_Train)
+```
+
+## Predict on Test and Calculate Accuracy
+```{r}
+# Predicton Test Data
+pred_Test = predict(model, test_Data[,setdiff(names(test_Data),
+                                              "ClaimSize")],
+                    type="response", 
+                    norm.votes=TRUE)
+
+# Build confusion matrix and find accuracy   
+cm_Test = table("actual"=test_Data$ClaimSize, "predicted"=pred_Test);
+cm_Test
+
+accu_Test= sum(diag(cm_Test))/sum(cm_Test)
+accu_Test
+
+rm(pred_Test, cm_Test)
+
+accu_Train
+accu_Test
+```
+
+## Build random forest using top 12 important attributes
+```{r}
+top_Imp_Attr = as.character(rf_Imp_Attr$Attributes[1:12])
+
+set.seed(015)
+
+# Build the classification model using randomForest
+model_Imp = randomForest(ClaimSize~.,
+                         data=train_Data[,c(top_Imp_Attr,"ClaimSize")], 
+                         keep.forest=TRUE,ntree=100) 
+```
+
+## Print and understand the model
+```{r}
+print(model_Imp)
+table(train_Data$target)
+```
+
+## Important attributes
+```{r}
+model_Imp$importance  
+```
+
+## Predict on Train Data and Calculate Accuracy
+```{r}
+# Predict on Train data 
+pred_Train = predict(model_Imp, train_Data[,top_Imp_Attr],
+                     type="response", norm.votes=TRUE)
+
+
+# Build confusion matrix and find accuracy   
+cm_Train = table("actual" = train_Data$ClaimSize, 
+                 "predicted" = pred_Train);
+cm_Train
+
+accu_Train_Imp = sum(diag(cm_Train))/sum(cm_Train)
+accu_Train_Imp
+
+rm(pred_Train, cm_Train)
+```
+
+## Predict on Test Data and Calculate Accuracy
+```{r}
+# Predicton Test Data
+pred_Test = predict(model_Imp, test_Data[,top_Imp_Attr],
+                    type="response", norm.votes=TRUE)
+
+# Build confusion matrix and find accuracy   
+cm_Test = table("actual" = test_Data$ClaimSize, 
+                "predicted" = pred_Test);
+cm_Test
+
+accu_Test_Imp = sum(diag(cm_Test))/sum(cm_Test)
+
+rm(pred_Test, cm_Test)
+
+accu_Train
+accu_Test
+accu_Train_Imp
+accu_Test_Imp
+```
+
+## Select mtry value with minimum out of bag (OOB) error.
+```{r}
+str(train_Data[57])
+mtry <- tuneRF(train_Data[-57],train_Data$ClaimSize, ntreeTry=100,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+print(mtry)
+print(best.m)
+```
+## Tuning Random Forest Models 
+
+* Hyper parameters are variables in a model arrived at through empirical methods
+* What are the hyper parameters of Random Forest Models?
+    * Number of trees to be built
+    * Depth of trees
+    * Number of columns to use for tree building (Mtry)
+
+
+## Parameters in tuneRF function
+* The stepFactor specifies at each iteration, mtry is inflated (or deflated) by this value
+* The improve specifies the (relative) improvement in OOB error must be by this much for the search to continue
+* The trace specifies whether to print the progress of the search
+* The plot specifies whether to plot the OOB error as function of mtry
+
+## Build Model with best mtry again 
+```{r}
+ set.seed(71)
+
+rf <- randomForest(ClaimSize~.,data=train_Data, mtry=best.m, importance=TRUE,ntree=100)
+print(rf)
+```
+
+## Important attributes - New Model
+```{r}
+# Evaluate variable importance
+importance(rf)
+
+# Important attributes
+model$importance  
+```
+
+## Extract and store important variables obtained from the random forest model
+```{r}
+
+rf_Imp_Attr = data.frame(model$importance)
+rf_Imp_Attr = data.frame(row.names(rf_Imp_Attr),rf_Imp_Attr[,1])
+colnames(rf_Imp_Attr) = c('Attributes', 'Importance')
+rf_Imp_Attr = rf_Imp_Attr[order(rf_Imp_Attr$Importance, decreasing = TRUE),]
+
+```
+
+## Predict on Train Data and Calculate Accuracy
+```{r}
+# Predict on Train data 
+pred_Train = predict(model, 
+                     train_Data[,setdiff(names(train_Data), "ClaimSize")],
+                     type="response", 
+                     norm.votes=TRUE)
+
+# Build confusion matrix and find accuracy   
+cm_Train = table("actual"= train_Data$ClaimSize, "predicted" = pred_Train)
+cm_Train
+
+accu_Train = sum(diag(cm_Train))/sum(cm_Train)
+rm(pred_Train, cm_Train)
+
+```
+
+
+## Predict on Test Data and Calculate Accuracy
+```{r}
+# Predicton Test Data
+pred_Test = predict(model, test_Data[,setdiff(names(test_Data),
+                                              "ClaimSize")],
+                    type="response", 
+                    norm.votes=TRUE)
+
+# Build confusion matrix and find accuracy   
+cm_Test = table("actual"=test_Data$ClaimSize, "predicted"=pred_Test)
+cm_Test
+
+accu_Test= sum(diag(cm_Test))/sum(cm_Test)
+rm(cm_Test)
+
+accu_Train
+accu_Test
+
+```
+
+
+
+```{r}
+pred_TEST2 <- predict(model, test_final)
+head(pred_TEST2)
+index_outcome2 <- data.frame(pred_TEST2)
+final_submission2 <- data.frame(test_data1, index_outcome2)
+colnames(final_submission2)[2] = "ClaimSize"
+colnames(final_submission2)
+dim(final_submission2)
+write.csv(final_submission2, "Arpana_Mith.csv",row.names = FALSE)
+```
