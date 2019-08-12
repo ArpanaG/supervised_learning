@@ -1,0 +1,90 @@
+---
+title: "cute_3"
+output: html_document
+---
+
+```{r}
+getwd()
+traindata = read.csv("train-1542197608821.csv")
+head(traindata)
+```
+```{r}
+str(traindata)
+
+```
+```{r}
+traindata$serve = as.factor(traindata$serve)
+str(traindata)
+```
+```{r}
+summary(traindata)
+```
+
+```{r}
+head(traindata)
+traindata$ID = NULL
+head(traindata)
+```
+```{r}
+sum(is.na(traindata))
+```
+```{r}
+library(caret)
+set.seed(123)
+#k=5
+traincontrol = trainControl(method = "cv",number = 5)
+#train the model
+model_nb = train(outcome ~.,data = traindata, method ="naive_bayes", trcontrol = traincontrol)
+#summarize the results
+print(model_nb)
+```
+
+```{r}
+#library(caret)
+#set.seed(123)
+#k=5
+#traincontrol = trainControl(method = "cv",number = 5)
+#train the model
+#model_c5 = train(outcome ~.,data = traindata, method ="C5.0", trcontrol = #traincontrol)
+#summarize the results
+#print(model_c5)
+```
+```{r}
+library(caret)
+set.seed(123)
+#k=5
+traincontrol = trainControl(method = "cv",number = 5)
+#train the model
+model_rf = train(outcome ~.,data = traindata, method ="rf", trcontrol = traincontrol)
+#summarize the results
+print(model_rf)
+```
+```{r}
+testdata = read.csv("test data.csv")
+
+
+testdata$serve = as.factor(testdata$serve)
+predictions_rf = predict(model_rf,testdata)
+```
+
+```{r}
+predictions_c5 = predict(model_c5,testdata)
+```
+
+```{r}
+output = data.frame(testdata$ID,predictions_rf)
+summary(output)
+dim(output)
+names(output) = c("ID","Outcome")
+write.csv(output,file = "Arpana.csv", row.names = FALSE)
+
+```
+
+```{r}
+output = data.frame(testdata$ID,predictions_c5)
+summary(output)
+dim(output)
+names(output) = c("ID","Outcome")
+write.csv(output,file = "hem.csv", row.names = FALSE)
+```
+
